@@ -105,7 +105,7 @@ example_application $ kubectl get pods -n app-monitoring | grep example-applicat
 example-application-5d594c6bd-8c8ml   2/2     Running   0          71s
 ```
 
-If we open Prometheus dashboard http://<HOST>:31100, we can search 4 metrics that we created from application logs. You should be able to see them and show values in the graph. For example, for metric ACNTST_C, graph can look like this:
+If we open Prometheus dashboard `http://<HOST>:31100`, we can search 4 metrics that we created from application logs. You should be able to see them and show values in the graph. For example, for metric ACNTST_C, graph can look like this:
 
 ![prometheus](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/prometheus_graph_1.png)
 
