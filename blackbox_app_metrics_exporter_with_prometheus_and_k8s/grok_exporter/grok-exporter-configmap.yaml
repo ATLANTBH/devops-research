@@ -1,0 +1,46 @@
+kind: ConfigMap
+metadata:
+  name: grok-exporter
+  namespace: app-monitoring
+apiVersion: v1
+data:
+  config.yml: |-
+    global:
+      config_version: 2
+    input:
+      type: file
+      fail_on_missing_logfile: false
+      path: /usr/share/app_log/app.log
+      readall: true
+    grok:
+      patterns_dir: ./patterns
+    metrics:
+      - type: gauge
+        name: ACNTST_C
+        help: ACNTST_C
+        match: '%{GREEDYDATA}ACNTST_C:%{SPACE}%{NUMBER:val}%{GREEDYDATA}'
+        value: '{{.val}}'
+        cumulative: false
+
+      - type: gauge
+        name: ACNTST_C_HVA
+        help: ACNTST_C_HVA
+        match: '%{GREEDYDATA}ACNTST_C_HVA:%{SPACE}%{NUMBER:val}%{GREEDYDATA}'
+        value: '{{.val}}'
+        cumulative: false
+
+      - type: gauge
+        name: ACTIVE_PINGS
+        help: ACTIVE_PINGS
+        match: '%{GREEDYDATA}ACTIVE_PINGS:%{SPACE}%{NUMBER:val}%{GREEDYDATA}'
+        value: '{{.val}}'
+        cumulative: false
+
+      - type: gauge
+        name: B_WRITERS
+        help: B_WRITERS
+        match: '%{GREEDYDATA}B_WRITERS:%{SPACE}%{NUMBER:val}%{GREEDYDATA}'
+        value: '{{.val}}'
+        cumulative: false
+    server:
+      port: 9144

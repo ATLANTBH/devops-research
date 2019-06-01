@@ -1,0 +1,6 @@
+#!/bin/sh
+
+APP_BASE_DIR="/example"
+APP_LOG="/var/log/cron-example-application/app.log"
+
+/usr/local/bin/ruby ${APP_BASE_DIR}/example_application.rb ${APP_LOG}

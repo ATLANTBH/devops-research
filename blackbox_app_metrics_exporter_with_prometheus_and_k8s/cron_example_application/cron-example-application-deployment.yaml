@@ -1,0 +1,41 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: cron-example-application
+  namespace: app-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      main_app: cron-example-application
+      sidecar_app: grok-exporter
+  template:
+    metadata:
+      labels:
+        main_app: cron-example-application
+        sidecar_app: grok-exporter
+    spec:
+      containers:
+      - name: cron-example-application
+        image: cron-example-application
+        imagePullPolicy: Never
+        volumeMounts:
+        - name: application-log
+          mountPath: /var/log/cron-example-application
+      - name: grok
+        image: palobo/grok_exporter
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9144
+          protocol: TCP
+        volumeMounts:
+        - name: grok-config-volume
+          mountPath: /etc/grok_exporter
+        - name: application-log
+          mountPath: /usr/share/app_log
+      volumes:
+      - name: grok-config-volume
+        configMap:
+          name: grok-exporter
+      - name: application-log
+        emptyDir: {}
