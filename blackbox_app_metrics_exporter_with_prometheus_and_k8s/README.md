@@ -2,20 +2,22 @@
 
 ### Intro
 
-In order to gain better understanding on how our applications behaves in the realtime on specific environment and to be able to pinpoint and alert possible problems that may occur either with system or the application itself, we must continually create telemetry which is, in plain words, process of automatic generation and transmission of data to some system where it will be monitored and analyzed. One of the preferred monitoring tools is Prometheus.
+In order to gain better understanding on how our applications behaves in the realtime on specific environment and to be able to pinpoint and alert possible problems that may occur either with system or the application itself, we must continually create telemetry which is, in plain words, process of automatic generation and transmission of data to some system where it will be monitored and analyzed. One of the preferred monitoring tools is **Prometheus**.
 
-In the context of application monitoring usually, we think about exporting certain application metrics from the application source code itself. This method is often referred to as a white box monitoring. While this is usually prefered way of doing things, sometimes this approach is not possible (in other words, changes in the code itself are not acceptable, you don't have access to source code, you are using third party service which you depend upon..etc.)
+In the context of application monitoring usually, we think about exporting certain application metrics from the application source code itself. This method is often referred to as a **white box monitoring**. While this is usually prefered way of doing things, sometimes this approach is not possible (for example: changes in the code itself are not acceptable, you don't have access to source code, you are using third party service which you depend upon..etc.)
 
-In these situations, only way to get some knowledge about behaviour of the application is by observing application logs and use them to acquire metrics. This approach is usually referred to as a black box monitoring. Fortunately, this is also possible using Prometheus with additional metric exporters. One of the most popular is Grok exporter.
+In these situations, only way to get some knowledge about behaviour of the application is by observing application logs and use them to acquire metrics. This approach is usually referred to as a **black box monitoring**. Fortunately, this is also possible using Prometheus with additional metric exporters. One of the most popular is **Grok exporter**.
 
-These days, more and more applications are running as microservices in Kubernetes ecosystem which is becoming de-facto standard for orchestration of containerized applications. In this article, I will focus on explaining how you can export metrics from the application logs using Grok exporter and Prometheus in Kubernetes and also explain difference between exporting metrics from the running application in contrast to exporting metrics from application running as a cron job (this especially becomes a bit more challenging to implement when working in Kubernetes ecosystem).
+These days, more and more applications are running as microservices in **Kubernetes** ecosystem which is becoming de-facto standard for orchestration of containerized applications. In this article, I will focus on explaining how you can export metrics from the application logs using Grok exporter and Prometheus in Kubernetes and also explain difference between exporting metrics from the running application in contrast to exporting metrics from application running as a cron job (this especially becomes a bit more challenging to implement when working in Kubernetes ecosystem).
+
+This guide assumes you already Kubernetes cluster running. For the experimentation purposes, you can deploy Kubernetes on your local machine using [minikube](https://kubernetes.io/docs/setup/minikube/) 
 
 ### Deploying Prometheus in Kubernetes
 
-Before we go into the application part, we must first make sure that we have Prometheus running in Kubernetes. This can be done using following kubernetes resources:
+Before we go into the application part, we need to make sure that we have Prometheus running in Kubernetes. This can be done using following kubernetes resources:
 
-- [prometheus-configmap](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/prometheus/prometheus-configmap.yaml) - contains prometheus config file which will be dynamically loaded into the running Prometheus pod. As you can see, it contains one scrape config defined which points to the grok service running in Kubernetes (later, we will deploy grok exporter in Kubernetes also)
-- [prometheus-deployment](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/prometheus/prometheus-deployment.yaml) - this is Kubernetes deployment resource which defined one Prometheus pod replica that will be deployed. For the sake of simplicity, we will not take into the consideration persistence of Prometheus data, but this is something that should definitely be done in production usage. In that case, usually, statefulset will be better fit than deployment which would contain persistence volume solution (some nfs storage, local storage, block storage...etc.)
+- [prometheus-configmap](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/prometheus/prometheus-configmap.yaml) - contains prometheus config file which will be loaded into the running Prometheus pod. As you can see, it contains one scrape config defined which points to the grok service running in Kubernetes (later, we will deploy grok exporter in Kubernetes also)
+- [prometheus-deployment](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/prometheus/prometheus-deployment.yaml) - this is Kubernetes deployment resource which defined one Prometheus pod replica that will be deployed. For the sake of simplicity, we will not worry about persistence of Prometheus data, but this is something that should be taken into the consideration in production usage. In that case, usually, statefulset will be better fit than deployment which would contain persistence volume solution (nfs storage, local storage, block storage...etc.)
 - [prometheus-service](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/prometheus/prometheus-service.yaml) - this is Kubernetes NodePort service resource which exposes external Prometheus port on all Kubernetes cluster node through which external access to Prometheus dashboard will be available. In the production environment, you would put load balancer/ingress in front of Prometheus application and enable SSL termination but that is out of the scope for this article
 
 We will first create namespace called `app-monitoring` and then apply resources from above:
@@ -38,7 +40,7 @@ NAME                    TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)       
 service/prometheus      NodePort    10.105.102.60   <none>        9090:31100/TCP   22d
 ```
 
-When we apply these resources, you should be able to access Prometheus dashboard through your browser: http://<HOST>:31100
+When we apply these resources, you should be able to access Prometheus dashboard through your browser: `http://<HOST>:31100`
 
 ### Example application
 
@@ -51,7 +53,7 @@ Format of logged metrics looks like this:
 | ACNTST_C: 66 | ACNTST_C_HVA: 53 | ACTIVE_PINGS: 21 | B_WRITERS: 55 |
 ```
 
-Our assignment is to scrape values for each 4 metrics and push them to the Prometheus but then have ability on the Prometheus to show them as Prometheus GAUGE metric. In contrast to COUNTER, which is cumulative metric, GAUGE is a metric that represents a single numerical value that can arbitrarily go up and down. This way, we would be able to track how metric values are changing in the function of time.
+Our assignment is to scrape values for each 4 metrics and push them to the Prometheus and then have ability on the Prometheus to show them as **Prometheus GAUGE metric**. In contrast to **COUNTER**, which is cumulative metric, **GAUGE** is a metric that represents a single numerical value that can arbitrarily go up and down. This way, we would be able to track how metric values are changing in the function of time.
 There are two possible scenarios in which this application is running: continually running application and application running as a cron job. This article will show both approaches in context of exporting metrics from the logs.
 
 ### Grok exporter
@@ -110,4 +112,6 @@ If we open Prometheus dashboard http://<HOST>:31100, we can search 4 metrics tha
 ### Scraping metrics from the application running as cron job
 
 You are probably asking a question: What is the difference in scraping metrics between continually running application vs. application running as cron job since, after all, both of them are logging output in some log which is scraped by Grok exporter, converted into the metrics and pulled from the Prometheus side? You are right. It shouldn't make any difference. However, since application is running in Kubernetes, this adds couple of complexities which I will discuss in this part of an article.
+
+...
 
