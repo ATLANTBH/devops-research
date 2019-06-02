@@ -113,5 +113,68 @@ If we open Prometheus dashboard `http://<HOST>:31100`, we can search 4 metrics t
 
 You are probably asking a question: What is the difference in scraping metrics between continually running application vs. application running as cron job since, after all, both of them are logging output in some log which is scraped by Grok exporter, converted into the metrics and pulled from the Prometheus side? You are right. It shouldn't make any difference. However, since application is running in Kubernetes, this adds couple of complexities which I will discuss in this part of an article.
 
-...
+Generally, when you want to run cron job in kubernetes, obvious choice would be to use [CronJob resource type]( https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/)
+This is easy to do and all we would need is to move our containers from Deployment resource to CronJob resource. However, there are couple of problems in this approach:
+- we cannot put grok exporter application container into the CronJob as well since it needs to run constantly
+- if we even put both containers into the cron job (which would mean both of them are running in periodic fashion), we need to have a way for Prometheus to DNS resolve grok exporter application (which would mean we need to have service running on top of CronJob which is not possible)
+- finally, if we decide to run just example application in CronJob and grok-exporter in separate Pod/Deployment, we encounter an issue where we would have two pods which need to access same Volume which is a discouraged practice in Kubernetes world
 
+To avoid these problems, we will have the same approach like we did previously for example-application but with significant change in a way how the example-application is actually running in the container (it will run inside container as a cron job). 
+
+To do this we need following:
+
+Create bash script called [run_example_application](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/cron_example_application/run_example_application) which runs example_application.rb file
+```
+#!/bin/sh
+
+APP_BASE_DIR="/example"
+APP_LOG="/var/log/cron-example-application/app.log"
+
+/usr/local/bin/ruby ${APP_BASE_DIR}/example_application.rb ${APP_LOG}
+```
+
+Modify [Dockerfile](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/cron_example_application/Dockerfile) so it looks like this:
+```
+FROM ruby:2.3.1-alpine
+MAINTAINER bakir@atlantbh.com
+
+ENV APP_BASE_DIR /example
+ENV APP_LOG_DIR /var/log/cron-example-application
+ENV APP_LOG $APP_LOG_DIR/app.log
+
+RUN mkdir -p $APP_BASE_DIR/cron
+RUN mkdir -p $APP_LOG_DIR
+
+COPY "./example_application.rb" $APP_BASE_DIR/
+COPY "./run_example_application" $APP_BASE_DIR/cron/
+
+RUN chmod a+x $APP_BASE_DIR/example_application.rb
+RUN chmod a+x $APP_BASE_DIR/cron/run_example_application
+
+RUN echo -n "* * * * * run-parts ${APP_BASE_DIR}/cron" >> /etc/crontabs/root
+RUN touch $APP_LOG
+
+# Run the command on container startup
+CMD ["sh", "-c", "crond -f"]
+```
+As you can see, we are putting **run_example_application** script into the **/example/cron** directory which we will pass as an argument to the **run-parts** command which we put into the **crontab**. run-parts command will run every minute, every script found in the specified directory (in our case that is /example/cron). Important thing to note is that name of the script must be without type (for example sh) and script must be executable.
+
+Next thing to do is to build this Dockerfile:
+```
+cd ./cron_example_application
+cron_example_application $ docker build -t cron-example-application .
+```
+
+Finally, we need to run [cron-example-application-deployment](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/cron_example_application/cron-example-application-deployment.yaml) resource:
+```
+cd ./cron_example_application
+cron_example_application $ kubectl apply -f example-application-deployment.yaml
+cron_example_application $ kubectl get pods -n app-monitoring | grep example-application
+NAME                                  READY   STATUS    RESTARTS   AGE
+example-application-4d192d6bf-4c2fl   2/2     Running   0          13m
+```
+If we open Prometheus dashboard http://<HOST>:31100, we can search 4 metrics that we created from application logs. You should be able to see them and show values in the graph.
+
+### Conclusion
+
+There are certain situations where you will not be able to modify code and export metrics like you want. In those cases, you will have to rely on available application logs in order to gather matrics. I hope this article showed you how it can be done using Grok Exporter and Prometheus. Also, since more and more applications are designed as a microservices, dockerized and run in Kubernetes ecosystem, this article showed you how you can establish telemetry in those conditions and explained subtle but important difference between continuously and periodicly running application in context of exporting metrics.
