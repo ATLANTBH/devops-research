@@ -111,13 +111,11 @@ If we open Prometheus dashboard `http://<HOST>:31100`, we can search 4 metrics t
 
 ### Scraping metrics from the application running as cron job
 
-You are probably asking a question: What is the difference in scraping metrics between continually running application vs. application running as cron job since, after all, both of them are logging output in some log which is scraped by Grok exporter, converted into the metrics and pulled from the Prometheus side? You are right. It shouldn't make any difference. However, since application is running in Kubernetes, this adds couple of complexities which I will discuss in this part of an article.
+You are probably asking a question: What is the difference in scraping metrics between continually running application vs. application running as cron job since, after all, both of them are logging output in some log which is scraped by Grok exporter? You are right. It shouldn't make any difference. However, since application is running in Kubernetes, this adds couple of complexities which I will explain in this part of an article.
 
-Generally, when you want to run cron job in kubernetes, obvious choice would be to use [CronJob resource type]( https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/)
-This is easy to do and all we would need is to move our containers from Deployment resource to CronJob resource. However, there are couple of problems in this approach:
+Generally, when you want to run cron job in kubernetes, obvious choice would be to use [CronJob resource type]( https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/). All we would need is to move our containers from Deployment resource to CronJob resource. However, there are couple of problems in this approach:
 - we cannot put grok exporter application container into the CronJob as well since it needs to run constantly
-- if we even put both containers into the cron job (which would mean both of them are running in periodic fashion), we need to have a way for Prometheus to DNS resolve grok exporter application (which would mean we need to have service running on top of CronJob which is not possible)
-- finally, if we decide to run just example application in CronJob and grok-exporter in separate Pod/Deployment, we encounter an issue where we would have two pods which need to access same Volume which is a discouraged practice in Kubernetes world
+- if we decide to run just example application in CronJob and grok-exporter in separate Pod/Deployment, we encounter an issue where we would have two pods which need to access same Volume which is a discouraged practice in Kubernetes world (collocation of pods, multiple access defined persistent volume types..etc.)
 
 To avoid these problems, we will have the same approach like we did previously for example-application but with significant change in a way how the example-application is actually running in the container (it will run inside container as a cron job). 
 
@@ -177,4 +175,4 @@ If we open Prometheus dashboard http://<HOST>:31100, we can search 4 metrics tha
 
 ### Conclusion
 
-There are certain situations where you will not be able to modify code and export metrics like you want. In those cases, you will have to rely on available application logs in order to gather matrics. I hope this article showed you how it can be done using Grok Exporter and Prometheus. Also, since more and more applications are designed as a microservices, dockerized and run in Kubernetes ecosystem, this article showed you how you can establish telemetry in those conditions and explained subtle but important difference between continuously and periodicly running application in context of exporting metrics.
+There are certain situations where you will not be able to modify code and export metrics like you want. In those cases, you will have to rely on available application logs in order to gather matrics. I hope this article showed you how it can be done using Grok Exporter and Prometheus. Also, since more and more applications are designed as a microservices, dockerized and run in Kubernetes ecosystem, this article showed you how you can establish telemetry in those conditions. Finally, it presented important difference between continuously and periodicly running application in context of exporting metrics in Kubernetes ecosystem.
