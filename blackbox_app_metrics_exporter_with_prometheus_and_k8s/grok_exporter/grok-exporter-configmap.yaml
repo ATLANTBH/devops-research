@@ -11,7 +11,7 @@ data:
       type: file
       fail_on_missing_logfile: false
       path: /usr/share/app_log/app.log
-      readall: true
+      readall: false
     grok:
       patterns_dir: ./patterns
     metrics:
