@@ -2,25 +2,25 @@
 
 ### Intro
 
-In order to gain better understanding on how our applications behave in the realtime and to be able to pinpoint and alert possible problems that may occur, we must continually create telemetry which is, in plain words, process of automatic generation and transmission of data to some system where it will be monitored and analyzed. One of the preferred monitoring tools is **Prometheus**.
+In order to gain a better understanding of how our applications behave in realtime and to be able to pinpoint and alert the possible problems that may occur, we must continually create telemetry. Telemetry is, in plain words, the process of automatic generation and the transmission of data to some system where it will be monitored and analyzed. One of the preferred monitoring tools is **Prometheus**.
 
-In the context of application monitoring, we usually think about exporting certain application metrics from the application source code itself. This method is often referred to as a **white box monitoring**. While this is usually a prefered way, sometimes, this approach is not possible (for example: you don't have access to make changes in the source code, you are using third party service which you depend upon..etc.)
+In the context of application monitoring, we usually think about exporting certain application metrics from the application source code itself. This method is often referred to as **white box monitoring**. While this is usually the prefered method, sometimes, this approach is not possible (for example: you don't have access to make changes in the source code, you are using a third party service which you depend upon, etc.)
 
-In these situations, only way to gain some knowledge about behaviour of the application is by observing application logs and use them to construct metrics. This approach is usually referred to as a **black box monitoring**. Fortunately, this is also possible using Prometheus with additional metric exporters. One of the most popular is **Grok exporter**.
+In these situations, the only way to gain some knowledge about the behaviour of the application is by observing application logs and using them to construct metrics. This approach is usually referred to as **black box monitoring**. Fortunately, this is also possible using Prometheus with additional metric exporters. One of the most popular is **Grok exporter**.
 
-These days, more and more applications are running as microservices in **Kubernetes** ecosystem which is becoming de-facto standard for orchestration of containerized applications. In this article, I will focus on explaining how you can export metrics from the application logs using Grok exporter and Prometheus in Kubernetes and also explain difference between exporting metrics from the running application in contrast to exporting metrics from application running as a cron job (this especially becomes a bit more challenging to implement when working in Kubernetes ecosystem).
+These days, more and more applications are running as microservices in the **Kubernetes** ecosystem which is becoming a de-facto standard for the orchestration of containerized applications. In this article, I will focus on explaining how you can export metrics from the application logs using Grok exporter and Prometheus in Kubernetes. I will also explain the difference between exporting metrics from the running application in contrast to exporting metrics from the application running as a cron job (this especially becomes a bit more challenging to implement when working in the Kubernetes ecosystem).
 
-This guide assumes you already Kubernetes cluster running. For the experimentation purposes, you can deploy Kubernetes on your local machine using [minikube](https://kubernetes.io/docs/setup/minikube/) 
+This guide assumes you already have the Kubernetes cluster running. For experimentation purposes, you can deploy Kubernetes on your local machine using [minikube](https://kubernetes.io/docs/setup/minikube/) 
 
 ### Deploying Prometheus in Kubernetes
 
-Before we go into the application part, we need to make sure that we have Prometheus running in Kubernetes. This can be done using following kubernetes resources:
+Before we go into the application part, we need to make sure that we have Prometheus running in Kubernetes. This can be done using the following Kubernetes resources:
 
-- [prometheus-configmap](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/prometheus/prometheus-configmap.yaml) - contains prometheus config file which defines one scrape config which points to the grok exporter service running in Kubernetes (later, we will deploy grok exporter in Kubernetes also)
-- [prometheus-deployment](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/prometheus/prometheus-deployment.yaml) - this is Kubernetes deployment resource which defined one Prometheus pod replica that will be deployed. In the production environment, you would define persistence for the Prometheus data, but that is out of the scope for this article
-- [prometheus-service](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/prometheus/prometheus-service.yaml) - this is Kubernetes NodePort service resource which exposes external Prometheus port on all Kubernetes cluster nodes through which external access to Prometheus dashboard will be available. In the production environment, you would put load balancer/ingress in front of Prometheus application and enable SSL termination but that is out of the scope for this article
+- [prometheus-configmap](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/prometheus/prometheus-configmap.yaml) - contains a prometheus config file which defines one scrape config which points to the Grok exporter service running in Kubernetes (later, we will aso deploy Grok exporter in Kubernetes)
+- [prometheus-deployment](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/prometheus/prometheus-deployment.yaml) - this is a Kubernetes deployment resource which defined one Prometheus pod replica that will be deployed. In the production environment, you would define persistence for the Prometheus data, but that is beyond the scope of this article
+- [prometheus-service](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/prometheus/prometheus-service.yaml) - this is a Kubernetes NodePort service resource which exposes the external Prometheus port on all Kubernetes cluster nodes through which external access to Prometheus dashboard will be available. In the production environment, you would put load balancer/ingress in front of the Prometheus application and enable SSL termination but that too is beyond the scope of this article
 
-We will first create namespace called `app-monitoring` and then apply resources from above:
+We will first create a namespace called `app-monitoring` and then apply the resources from above:
 ```
 $ kubectl create namespace app-monitoring
 
@@ -44,29 +44,29 @@ When we apply these resources, you should be able to access Prometheus dashboard
 
 ### Example application
 
-Now that we have Prometheus up and running, next thing to do is to consider how are we going to run application from which we will scrape metrics using Grok exporter and pull them from Prometheus.
+Now that we have Prometheus up and running, next thing to do is to consider how we are going to run the application from which we will scrape metrics using Grok exporter and pull them from Prometheus.
 
-For the purposes of making this article clearer and focused on the problem of blackbox monitoring, I've created small "application" which just logs information which we will scrape to get metrics. Idea is to dockerize this application and run it in kubernetes environment.
+For the purpose of making this article clearer and focused on the problem of blackbox monitoring, I've created a small "application" which just logs information which we will scrape to get metrics. The idea is to dockerize this application and run it in a Kubernetes environment.
 
 Format of logged metrics looks like this:
 ```
 | ACNTST_C: 66 | ACNTST_C_HVA: 53 | ACTIVE_PINGS: 21 | B_WRITERS: 55 |
 ```
 
-Our assignment is to scrape values for each 4 metrics and push them to the Prometheus and then have ability on the Prometheus to show them as **Prometheus GAUGE metric**. In contrast to **COUNTER**, which is cumulative metric, **GAUGE** is a metric that represents a single numerical value that can arbitrarily go up and down. This way, we would be able to track how metric values are changing in the function of time.
-There are two possible scenarios in which this application is running: continually running application and application running as a cron job. This article will show both approaches in context of exporting metrics from the logs.
+Our assignment is to scrape values for each 4 metrics and push them to the Prometheus and then have the ability to show them as **Prometheus GAUGE metric** on the Prometheus. In contrast to **COUNTER**, which is a cumulative metric, **GAUGE** is a metric that represents a single numerical value that can arbitrarily go up and down. This way, we would be able to track how metric values are changing in the function of time.
+There are two possible scenarios in which this application is running: continually running application and application running as a cron job. This article will show both approaches in the context of exporting metrics from the logs.
 
 ### Grok exporter
 
-To be able to export metrics in the blackbox fashion, we are using [Grok Exporter tool](https://github.com/fstab/grok_exporter) which is a generic Prometheus exporter that extracts metrics from unstructured log data. Grok exporter uses Grok patterns for parsing log lines.
+To be able to export metrics in the blackbox fashion, we are using the [Grok Exporter tool](https://github.com/fstab/grok_exporter) which is a generic Prometheus exporter that extracts metrics from unstructured log data. Grok exporter uses Grok patterns for parsing log lines.
 
-Before we dockerize and deploy example application in Kubernetes, we must first apply following Grok exporter kubernetes resources:
-- [grok-exporter-configmap](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/grok_exporter/grok-exporter-configmap.yaml) - contains configuration file for Grok exporter which has following key information: 
+Before we dockerize and deploy the example application in Kubernetes, we must first apply the following Grok exporter Kubernetes resources:
+- [grok-exporter-configmap](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/grok_exporter/grok-exporter-configmap.yaml) - contains a configuration file for the Grok exporter which contains the following key information: 
   - input - path to the log that will be scraped
-  - grok - configures location of grok pattern definitions
-  - metrics - defines which metrics we want to scrape from application log
+  - Grok - configures location of Grok pattern definitions
+  - metrics - defines which metrics we want to scrape from the application log
   - server - configures HTTP port
-- [grok-exporter-service](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/grok_exporter/grok-exporter-service.yaml) - Kubernetes ClusterIP service that will be exposed internally in Kubernetes cluster so that Grok exporter is available from the Prometheus
+- [grok-exporter-service](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/grok_exporter/grok-exporter-service.yaml) - Kubernetes ClusterIP service that will be exposed internally in the Kubernetes cluster so that the Grok exporter is available from the Prometheus
 
 We can apply these resources using following kubectl commands:
 ```
@@ -77,13 +77,13 @@ grok_exporter $ kubectl apply grok-exporter-service.yaml
 
 ### Scraping metrics from the continually running application
 
-We will first look at how to scrape metrics from running application. We need to do following:
+We will first look at how to scrape metrics from the running application. We need to do the following:
 - run application which is writing data to the application log file
-- run grok exporter which takes data from the application log file, and based on the rules that we define, makes data available to Prometheus
+- run Grok exporter which takes data from the application log file, and based on the rules that we define, makes data available to Prometheus
 - we already have Prometheus running and listening to the Grok exporter service for incomming metrics
 
-Application can be found [here](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/example_application/example_application.rb). Application takes two arguments: number of time it will generate output with random values, output log where data will be stored. 
-Dockerfile for this application is defined [here](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/example_application/Dockerfile)
+The application can be found [here](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/example_application/example_application.rb). The application takes two arguments: number of times it will generate output with random values, output log where data will be stored. 
+The dockerfile for this application is defined [here](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/example_application/Dockerfile)
 
 We will dockerize our application by simply doing this: 
 ```
@@ -91,13 +91,13 @@ cd ./example_application
 example_application $ docker build -t example-application .
 ```
 
-Now that we have application docker image, it is time to use it in Kubernetes deployment resource defined in file: [example-application-deployment](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/example_application/example-application-deployment.yaml)
+Now that we have the application docker image, it is time to use it in the Kubernetes deployment resource defined in the file: [example-application-deployment](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/example_application/example-application-deployment.yaml)
 
-If we observe this file more carefully, we will see that pod contains two containers: **example-application** and **grok-exporter**. The usual scenario in Kubernetes, where one pod has multiple containers, is the case where one of them is a sidecontainer which needs to take output of the main running application container and do something with it (in our case, it needs to take log output and pass it to grok exporter application which will, based on the rules defined, scrape metrics for Prometheus)
+If we observe this file more carefully, we will see that pod contains two containers: **example-application** and **grok-exporter**. The usual scenario in Kubernetes, where one pod has multiple containers, is the case where one of them is a sidecontainer which needs to take output of the main running application container and do something with it (in our case, it needs to take log output and pass it to the Grok exporter application which will, based on the rules defined, scrape metrics for Prometheus)
 
-To be able to do this, important thing to know is that **containers running in the same pod are sharing same volume** which means that we can mount volume on each container and thus, enable sharing of the files between them. For this purpose we are using Volume called **emptyDir** which is first created when a Pod is assigned to a Node, and exists as long as that Pod is running on that node. Containers in the Pod can all read and write the same files in the emptyDir volume. This basically means that while example-application is logging information in the output log, that log is simultaneosly read by the grok-exporter.
+To be able to do this, the important thing to know is that the **containers running in the same pod are sharing the same volume** which means that we can mount volume on each container and, thus, enable sharing of the files between them. For this purpose we are using a Volume called **emptyDir** which is first created when a Pod is assigned to a Node, and exists as long as that Pod is running on that Node. Containers in the Pod can all read and write the same files in the emptyDir volume. This basically means that while the example-application is logging information in the output log, that log is simultaneosly read by the grok-exporter.
 
-Let's apply this resource in kubernetes:
+Let's apply this resource in Kubernetes:
 ```
 cd ./example_application
 example_application $ kubectl apply -f example-application-deployment.yaml
@@ -105,19 +105,19 @@ example_application $ kubectl get pods -n app-monitoring | grep example-applicat
 example-application-5d594c6bd-8c8ml   2/2     Running   0          71s
 ```
 
-If we open Prometheus dashboard `http://<HOST>:31100`, we can search 4 metrics that we created from application logs. You should be able to see them and show values in the graph. For example, for metric ACNTST_C, graph can look like this:
+If we open Prometheus dashboard `http://<HOST>:31100`, we can search 4 metrics that we created from application logs. You should be able to see them and show values in the graph. For example, for metric ACNTST_C, the graph can look like this:
 
 ![prometheus](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/prometheus_graph_1.png)
 
 ### Scraping metrics from the application running as cron job
 
-Generally, when you want to run cron job in kubernetes, obvious choice would be to use [CronJob resource type]( https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/). All we would need is to move our containers from Deployment resource to CronJob resource. However, there are couple of problems in this approach:
-- we cannot put grok exporter application container into the CronJob as well since it needs to run constantly
-- if we decide to run just example application in CronJob and grok-exporter in separate Pod/Deployment, we encounter a situation where we have two pods which need to access same Persistence volume which is discouraged practice in Kubernetes world (collocation of pods, multiple access defined persistent volume types..etc.)
+Generally, when you want to run a cron job in Kubernetes, the obvious choice would be to use [CronJob resource type]( https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/). All we would need is to move our containers from Deployment resource to CronJob resource. However, there are a couple of problems with this approach:
+- we cannot put the Grok exporter application container into the CronJob as well, since it needs to run constantly
+- if we decide to run just the example application in CronJob and the grok-exporter in a separate Pod/Deployment, we encounter a situation where we have two pods which need to access the same Persistence volume which is discouraged practice in the Kubernetes world (collocation of pods, multiple access defined persistent volume types, etc.)
 
-To avoid these problems, we will have the same approach like we did previously for example-application but with significant change in a way how we run application in the container (it will be ran inside container as a cron job). 
+To avoid these problems, we will use the same approach as we did previously for the example-application, but with a significant change in the way we run the application in the container (we will run it inside the container as a cron job). 
 
-To do this we need following:
+To do this, we need the following:
 
 Create bash script called [run_example_application](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/cron_example_application/run_example_application) which runs example_application.rb file
 
@@ -145,7 +145,7 @@ RUN touch $APP_LOG
 # Run the command on container startup
 CMD ["sh", "-c", "crond -f"]
 ```
-As you can see, we are putting **run_example_application** script into the **/example/cron** directory which we will pass as an argument to the **run-parts** command which we put into the **crontab**. run-parts command will run every minute, every script found in the specified directory (in our case that is /example/cron). Important thing to note is that name of the script must be without type (for example sh) and script must be executable.
+As you can see, we are putting **run_example_application** script into the **/example/cron** directory which we will pass as an argument to the **run-parts** command which we put into the **crontab**. run-parts command will run every minute, every script found in the specified directory (in our case that is /example/cron). The important thing to note is that the name of the script must be without type (for example sh) and script must be executable.
 
 Next thing to do is to build this Dockerfile:
 ```
@@ -153,7 +153,7 @@ cd ./cron_example_application
 cron_example_application $ docker build -t cron-example-application .
 ```
 
-Finally, we need to run [cron-example-application-deployment](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/cron_example_application/cron-example-application-deployment.yaml) resource:
+Finally, we need to run the [cron-example-application-deployment](https://github.com/ATLANTBH/devops-research/blob/master/blackbox_app_metrics_exporter_with_prometheus_and_k8s/cron_example_application/cron-example-application-deployment.yaml) resource:
 ```
 cd ./cron_example_application
 cron_example_application $ kubectl apply -f example-application-deployment.yaml
@@ -165,4 +165,5 @@ If we open Prometheus dashboard http://<HOST>:31100, we should be able to see ou
 
 ### Conclusion
 
-There are certain situations where you will not be able to modify code and export metrics like you want. In those cases, you will have to rely on available application logs in order to construct/gather matrics. I hope this article showed you how it can be done using Grok Exporter and Prometheus. Also, since more and more applications are designed as a microservices, dockerized and run in Kubernetes ecosystem, this article showed you how you can establish telemetry in those conditions. Finally, it presented important difference between continuously and periodically running application in context of exporting metrics in Kubernetes ecosystem.
+There are certain situations where you will not be able to modify code and export metrics like you want. In those cases, you will have to rely on the available application logs in order to construct/gather matrics. I hope this article showed you how it can be done using 
+Exporter and Prometheus. Also, since more and more applications are designed as microservices, dockerized and run in the Kubernetes ecosystem, this article showed you how you can establish telemetry in those conditions. Finally, it presented an important difference between continuously and periodically running an application in the context of exporting metrics in the Kubernetes ecosystem.
