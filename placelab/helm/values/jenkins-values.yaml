@@ -1,0 +1,68 @@
+Agent:
+  AlwaysPullImage: false
+  Component: jenkins-slave
+  Enabled: true
+  Image: jenkins/jnlp-slave
+  Kind: Pod
+  Privileged: false
+  Cpu: "1000m"
+  Memory: "2048Mi"
+  volumes:
+  - hostPath: /var/run/docker.sock
+    mountPath: /var/run/docker.sock
+    type: HostPath
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: "1024Mi"
+    limits:
+      cpu: "2000m"
+      memory: "2048Mi"
+Master:
+  AdminUser: admin
+  Component: jenkins-master
+  CustomConfigMap: false
+  HealthProbes: true
+  HealthProbesTimeout: 60
+  HostName: jenkins-placelab.dev.k8s.abhapp.com
+  HostNetworking: false
+  Image: jenkins/jenkins
+  ImageTag: "lts"
+  ImagePullPolicy: Always
+  Ingress:
+    Annotations:
+      kubernetes.io/ingress.allow-http: "false"
+      kubernetes.io/ingress.class: nginx
+      kubernetes.io/tls-acme: "true"
+      nginx.ingress.kubernetes.io/whitelist-source-range: 77.77.214.216/30
+    TLS:
+    - hosts:
+      - jenkins-placelab.dev.k8s.abhapp.com
+      secretName: jenkins-ingress-ssl
+  InstallPlugins:
+  - kubernetes:1.14.3
+  - workflow-aggregator:2.5
+  - workflow-job:2.24
+  - credentials-binding:1.16
+  - git:3.9.1
+  - greenballs:1.15
+  Name: jenkins-master
+  NodeSelector: {}
+  ScriptApproval:
+  - method groovy.json.JsonSlurperClassic parseText java.lang.String
+  - new groovy.json.JsonSlurperClassic
+  - staticMethod org.codehaus.groovy.runtime.DefaultGroovyMethods leftShift java.util.Map
+    java.util.Map
+  - staticMethod org.codehaus.groovy.runtime.DefaultGroovyMethods split java.lang.String
+  ServiceAnnotations: {}
+  ServicePort: 80
+  ServiceType: ClusterIP
+  SlaveListenerPort: 50000
+  Tolerations: {}
+  UseSecurity: true
+NetworkPolicy:
+  ApiVersion: networking.k8s.io/v1
+  Enabled: false
+rbac:
+  install: true
+  roleRef: cluster-admin

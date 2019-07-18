@@ -1,0 +1,65 @@
+coreDns:
+  enabled: false
+
+kubeDns:
+  enabled: true
+
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['job']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'plab'
+      routes:
+      - match:
+          alertname: Watchdog
+          alertname: HighNodeMemoryUsage
+        receiver: 'plab'
+    receivers:
+    - name: 'plab'
+      slack_configs:
+      - channel: '#alerts'
+        api_url: ''
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        text: |-
+          {{ range .Alerts }}
+            *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+            *Description:* {{ .Annotations.description }}
+            *Details:*
+            {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+            {{ end }}
+          {{ end }}
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+
+prometheus:
+  prometheusSpec:
+    ruleSelector:
+      matchLabels:
+        app: prometheus-operator
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi 
+
+grafana:
+  adminPassword: "adminpass"
+  persistence:
+    enabled: true
+    accessModes: ["ReadWriteOnce"]
+    size: 10Gi
