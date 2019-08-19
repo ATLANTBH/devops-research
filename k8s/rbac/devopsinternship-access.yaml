@@ -1,0 +1,152 @@
+# This will create a kubernetes service account with:
+#   - full permissions on a single namespace,
+#   - permissions to list pods in the kube-system namespace (required for helm)
+#   - cluster wide permissions to create persistent volumes (required to create persistent volumes in any namespace)
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: devopsinternship-user
+  namespace: devopsinternship
+
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: devopsinternship-user-full-access
+  namespace: devopsinternship
+rules:
+- apiGroups: ["", "extensions", "apps"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["batch"]
+  resources:
+  - jobs
+  - cronjobs
+  verbs: ["*"]
+
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  namespace: kube-system
+  name: pod-lister
+rules:
+- apiGroups: ["", "extensions", "apps"]
+  resources: ["pods"]
+  verbs: ["list"]
+- apiGroups: [""]
+  resources: ["pods/portforward"]
+  verbs: ["create"]
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: devopsinternship-user-view
+  namespace: devopsinternship
+subjects:
+- kind: ServiceAccount
+  name: devopsinternship-user
+  namespace: devopsinternship
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: devopsinternship-user-full-access
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: devopsinternship-pod-lister-binding
+  namespace: kube-system
+subjects:
+- kind: ServiceAccount
+  name: devopsinternship-user
+  namespace: devopsinternship
+roleRef:
+  kind: Role
+  name: pod-lister
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  creationTimestamp: null
+  name: devopsinternship-persistence-provisioner
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - csinodes
+  verbs:
+  - get
+  - list
+  - watch
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  creationTimestamp: null
+  name: devopsinternship-persistence-provisioner-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: devopsinternship-persistence-provisioner
+subjects:
+- kind: ServiceAccount
+  name: devopsinternship-user
+  namespace: devopsinternship
