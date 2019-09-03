@@ -1,0 +1,27 @@
+defaultBackend:
+  replicaCount: 2
+
+controller:
+  kind: DaemonSet
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  service:
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: '*'
+  config:
+    use-forwarded-headers: "true"
+    log-format-escape-json: "true"
+    log-format-upstream: '{"remote_addr": "$remote_addr", "x-forward-for": "$proxy_add_x_forwarded_for", "body_bytes_sent": $body_bytes_sent,
+    "request_id": "$req_id", "remote_user": "$remote_user", "bytes_sent": $bytes_sent, "status": $status, "vhost": "$host",
+    "request_proto": "$server_protocol", "path": "$uri", "request_query": "$args", "request_length": $request_length, "duration": $request_time,
+    "method": "$request_method", "http_referrer": "$http_referer", "http_user_agent": "$http_user_agent", "proxy_upstream_name": "$proxy_upstream_name",
+    "upstream_addr": "$upstream_addr", "upstream_response_length": $upstream_response_length,"upstream_response_time": $upstream_response_time,
+    "upstream_status": "$upstream_status"}'
+    http-redirect-code: "301"
+    use-proxy-protocol: "true"
+  metrics:
+    enabled: "true"
+  stats:
+    enabled: "true"
