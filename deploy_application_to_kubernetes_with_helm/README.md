@@ -8,6 +8,7 @@ This helm chart is created in order to give an example for Tech Bite - Deploy ap
 
 You can install this Helm chart by executing the following command:
 `helm install nginx-app nginx-app/`
+
 Once you have executed the command above, you can check view the installed resources:
 ```
 mujoh@mujo deploy_application_to_kubernetes_with_helm % kubectl get po,svc,ing
