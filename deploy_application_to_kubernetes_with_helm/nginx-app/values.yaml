@@ -45,16 +45,16 @@ ingress:
   ui:
     enabled: true
     annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-test
+      cert-manager.io/cluster-issuer: letsencrypt-logisticsmt
       kubernetes.io/ingress.class: nginx
     hosts:
-      - host: test-app.example.com
+      - host: test-app.logistics.abhapp.com
         paths:
           - "/"
     tls:
-    - secretName: tls-test-app
+    - secretName: tls-test-app-dev
       hosts:
-        - test-app.example.com
+        - test-app.logistics.abhapp.com
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious

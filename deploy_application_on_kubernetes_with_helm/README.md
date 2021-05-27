@@ -1,1 +1,0 @@
-# Deploy application on Kubernetes with Helm
