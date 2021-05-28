@@ -6,7 +6,9 @@ This helm chart is created in order to give an example for Tech Bite - Deploy ap
 
 ### Install Helm chart
 
-You can install this Helm chart by executing the following command:
+Before installing Helm chart, you should add `./certs-issuer.yaml` resource to your k8s cluster by executing `kubectl apply -f certs-issuer.yaml`. ClusterIssuer is a Kubernetes resource that represent certificate authority which generates signed certificates by honoring certificate signing requests. You should put your email address instead of `example-email@example.com` Let's Encrypt uses this email address to inform you about expiring certificates.
+
+You can install Helm chart by executing the following command:
 `helm install nginx-app nginx-app/`
 
 Once you have executed the command above, you can check view the installed resources:
