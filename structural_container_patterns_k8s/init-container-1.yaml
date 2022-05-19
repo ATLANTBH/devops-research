@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: psql
+  name: example1-psql
   labels:
-    app: "postgres"
+    app: example1-psql
 spec:
   initContainers:
     - name: fetch

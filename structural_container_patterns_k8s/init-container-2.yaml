@@ -1,15 +1,15 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: myapp-pod
+  name: example2-psql
   labels:
-    app: myapp
+    app: example2-psql 
 spec:
   initContainers:
     - name: check-pg-ready
       image: postgres:11
       command: ['sh', '-c', 
-            'until pg_isready -h qa-tempmonitoring-postgre.qa -p 5432;
+            'until pg_isready -h ${TBD} -p 5432;
             do echo waiting for database; sleep 2; done;']
   containers:
     - name: nginx
