@@ -8,7 +8,7 @@ spec:
   initContainers:
     - name: fetch
       image: mwendler/wget
-      command: ["wget","--no-check-certificate","https://sample-sql-queries.com/init_database.sql","-O","/docker-entrypoint-initdb.d/dump.sql"]
+      command: ["wget","--no-check-certificate","https://raw.githubusercontent.com/ATLANTBH/devops-research/structural-container-patterns-k8s/structural_container_patterns_k8s/init-database.sql","-O","/docker-entrypoint-initdb.d/dump.sql"]
       volumeMounts:
         - mountPath: /docker-entrypoint-initdb.d
           name: dump
@@ -23,6 +23,8 @@ spec:
           memory: "250Mi"
           cpu: "500m"
       env:
+        - name : POSTGRES_USER
+          value: "example"
         - name: POSTGRES_PASSWORD
           value: "example"
       volumeMounts:
