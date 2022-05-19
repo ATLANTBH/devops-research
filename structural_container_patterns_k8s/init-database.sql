@@ -1,24 +1,14 @@
-CREATE TABLE IF NOT EXISTS product (
-  product_id INT NOT NULL,
-  name varchar(250) NOT NULL,
-  PRIMARY KEY (product_id)
+CREATE TABLE users (
+    email VARCHAR(355) UNIQUE NOT NULL,
+    password VARCHAR(256) NOT NULL
 );
 
-...
-
-...
-
--- Creation of order_status table
-CREATE TABLE IF NOT EXISTS order_status (
-  order_status_id varchar(200) NOT NULL,
-  update_at TIMESTAMP,
-  sale_id varchar(200) NOT NULL,
-  status_name_id INT NOT NULL,
-  PRIMARY KEY (order_status_id),
-  CONSTRAINT fk_sale
-      FOREIGN KEY(sale_id)
-    REFERENCES sale(sale_id),
-  CONSTRAINT fk_status_name
-      FOREIGN KEY(status_name_id)
-    REFERENCES status_name(status_name_id)
+CREATE TABLE products (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(100) NOT NULL,
+    price NUMERIC(6, 2) NOT NULL,
+    category INT NOT NULL
 );
+
+INSERT INTO users VALUES ('test@test.com', 'Test*123');
+INSERT INTO products (title, price, category) VALUES ('Truco', 9.90, 13);
