@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+spec:
+  initContainers:
+    - name: check-pg-ready
+      image: postgres:11
+      command: ['sh', '-c', 
+            'until pg_isready -h qa-tempmonitoring-postgre.qa -p 5432;
+            do echo waiting for database; sleep 2; done;']
+  containers:
+    - name: nginx
+      image: nginx:latest
+      resources:
+        requests:
+          memory: "100Mi"
+          cpu: "250m"
+        limits:
+          memory: "250Mi"
+          cpu: "500m"

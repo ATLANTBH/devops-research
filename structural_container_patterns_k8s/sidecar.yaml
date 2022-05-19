@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nodejs-datadog-logging
+  labels:
+    app.kubernetes.io/name: nodejs-logging
+    app.kubernetes.io/instance: nodejs-logging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nodejs-datadog-logging
+      app.kubernetes.io/instance: nodejs-logging
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nodejs-datadog-logging
+        app.kubernetes.io/instance: nodejs-logging
+    spec:
+      serviceAccountName: default
+      volumes:
+      - name: logs
+        emptyDir: {}
+      containers:
+        - name: nodejs-datadog-logging
+          image: "registry.example.com/nodejs-datadog-logging:v1"
+          resources:
+            requests:
+              memory: "100Mi"
+              cpu: "250m"
+            limits:
+              memory: "250Mi"
+              cpu: "500m"
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          volumeMounts:
+          - name: logs
+            mountPath: /usr/src/app/logs
+        - name: "nodejs-logging-datadog-agent"
+          image: "datadog/agent:7"
+          resources:
+            requests:
+              memory: "50Mi"
+              cpu: "100m"
+            limits:
+              memory: "100Mi"
+              cpu: "150m"
+          imagePullPolicy: Always
+          envFrom:
+          - configMapRef:
+              name: "nodejs-logging-datadog-agent-env"
+          - secretRef:
+              name: "nodejs-logging-datadog-agent"
+          volumeMounts:
+          - name: logs
+            mountPath: /usr/src/app/logs
+          - name: nodejs-datadog-agent-config
+            mountPath: /etc/datadog-agent/conf.d/nodejslogging.d/conf.yaml
+            subPath: config

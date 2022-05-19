@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: psql
+  labels:
+    app: "postgres"
+spec:
+  initContainers:
+    - name: fetch
+      image: mwendler/wget
+      command: ["wget","--no-check-certificate","https://sample-sql-queries.com/init_database.sql","-O","/docker-entrypoint-initdb.d/dump.sql"]
+      volumeMounts:
+        - mountPath: /docker-entrypoint-initdb.d
+          name: dump
+  containers:
+    - name: psql
+      image: postgres:latest
+      resources:
+        requests:
+          memory: "100Mi"
+          cpu: "250m"
+        limits:
+          memory: "250Mi"
+          cpu: "500m"
+      env:
+        - name: POSTGRES_PASSWORD
+          value: "example"
+      volumeMounts:
+        - mountPath: /docker-entrypoint-initdb.d
+          name: dump
+  volumes:
+    - emptyDir: {}
+      name: dump
